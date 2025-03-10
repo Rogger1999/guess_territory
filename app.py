@@ -20,9 +20,13 @@ with open("inseln_inselgruppen.json", "r", encoding="utf-8") as f:
 with open("gebirge.json", "r", encoding="utf-8") as f:
     gebirge_data = json.load(f)
 
-# NEW: Load forgotten.json
+# Already existing "forgotten.json"
 with open("forgotten.json", "r", encoding="utf-8") as f:
     forgotten_data = json.load(f)
+
+# NEW: Load forgotten2.json
+with open("forgotten2.json", "r", encoding="utf-8") as f:
+    forgotten2_data = json.load(f)
 
 territory_data = {
     "gewässer": {
@@ -30,8 +34,8 @@ territory_data = {
         "fluesse": fluesse_data,
         "inseln_inselgruppen": inseln_data,
         "gebirge": gebirge_data,
-        # NEW: Add the forgotten file
-        "forgotten": forgotten_data
+        "forgotten": forgotten_data,
+        "forgotten2": forgotten2_data
     }
 }
 
@@ -54,13 +58,15 @@ def add_category(cat_name, cat_data):
             "geometry_points": points
         })
 
+# Add each group
 add_category("Meere, Meeresteile und Seen", territory_data["gewässer"]["meere_meeresteile_und_seen"])
 add_category("Flüsse", territory_data["gewässer"]["fluesse"])
 add_category("Inseln/Inselgruppen", territory_data["gewässer"]["inseln_inselgruppen"])
 add_category("Gebirge", territory_data["gewässer"]["gebirge"])
-
-# NEW: Additional category for forgotten.json
 add_category("Vergessenes", territory_data["gewässer"]["forgotten"])
+
+# NEW: Extra category for forgotten2.json
+add_category("Vergessenes2", territory_data["gewässer"]["forgotten2"])
 
 df = pd.DataFrame(data_rows)
 
@@ -190,6 +196,7 @@ def populate_category(mode):
             {"label": "Inseln/Inselgruppen", "value": "Inseln/Inselgruppen"},
             {"label": "Gebirge", "value": "Gebirge"},
             {"label": "Vergessenes", "value": "Vergessenes"},
+            {"label": "Vergessenes2", "value": "Vergessenes2"},
         ]
     elif mode == "learning":
         return [
@@ -198,6 +205,7 @@ def populate_category(mode):
             {"label": "Inseln/Inselgruppen", "value": "Inseln/Inselgruppen"},
             {"label": "Gebirge", "value": "Gebirge"},
             {"label": "Vergessenes", "value": "Vergessenes"},
+            {"label": "Vergessenes2", "value": "Vergessenes2"},
         ]
     return []
 
@@ -223,8 +231,8 @@ def set_or_reset_category(n_next, n_quiz_back, n_learn_back, chosen_cat, old_cat
         if chosen_cat:
             return chosen_cat
         return old_cat
-    # If user clicks any back button => reset to None
     elif trig_id in ["back-button", "learning-back-button"]:
+        # Reset to None
         return None
 
     return no_update
@@ -314,10 +322,11 @@ def quiz_logic(selected_cat,
     trig_id = ctx.triggered[0]["prop_id"].split(".")[0]
     message = ""
 
+    # If no category set, do nothing special
     if selected_cat is None:
         return no_update, no_update, "", correct_count, wrong_count, done_features, remaining_features, no_update, no_update, no_update, start_time
 
-    # Get all features from DF for the chosen category
+    # If "Alle" => gather all features
     if selected_cat == "Alle":
         cat_feats = df["feature"].tolist()
     else:
@@ -333,6 +342,7 @@ def quiz_logic(selected_cat,
         start_time = now
         if trig_id == "reset-button":
             message = "Ratespiel neu gestartet!"
+
     # Guess scenario
     elif trig_id == "guess-button":
         if not current_feature:
@@ -443,12 +453,12 @@ def update_quiz_map(selected_feature):
     elif geom_type == "polygon":
         lats = [p[0] for p in points]
         lons = [p[1] for p in points]
-        # Ensure polygon is closed
+        # close polygon if not closed
         if points[0] != points[-1]:
             lats.append(points[0][0])
             lons.append(points[0][1])
 
-        # Draw only an outline (no fill)
+        # Outline only
         fig.add_trace(go.Scattergeo(
             lat=lats,
             lon=lons,
@@ -456,8 +466,7 @@ def update_quiz_map(selected_feature):
             line=dict(width=3, color=color_quiz)
         ))
 
-        # --- If you want to fill smaller polygons, you can do something like:
-        #
+        # If you'd like to fill smaller polygons, use fill="toself":
         # fig.add_trace(go.Scattergeo(
         #     lat=lats,
         #     lon=lons,
@@ -467,8 +476,6 @@ def update_quiz_map(selected_feature):
         #     fillcolor=color_quiz,
         #     opacity=0.3
         # ))
-        #
-        # But large polygons may cover the map.
 
     return fig
 
@@ -494,7 +501,6 @@ def update_learning_map(selected_category):
         height=500
     )
 
-    # color for learning
     color_learn = "blue"
 
     for _, row_data in sub_df.iterrows():
@@ -521,7 +527,7 @@ def update_learning_map(selected_category):
                 mode="lines",
                 line=dict(width=4, color=color_learn)
             ))
-            # label in the middle
+            # Label near midpoint
             mid_i = len(lats)//2
             fig.add_trace(go.Scattergeo(
                 lat=[lats[mid_i]],
@@ -537,15 +543,14 @@ def update_learning_map(selected_category):
                 lats.append(pts[0][0])
                 lons.append(pts[0][1])
 
-            # Outline only
+            # Outline only:
             fig.add_trace(go.Scattergeo(
                 lat=lats,
                 lon=lons,
                 mode="lines",
                 line=dict(width=3, color=color_learn)
             ))
-
-            # Optionally fill small polygons:
+            # Optionally fill:
             # fig.add_trace(go.Scattergeo(
             #     lat=lats,
             #     lon=lons,
@@ -556,7 +561,7 @@ def update_learning_map(selected_category):
             #     opacity=0.3
             # ))
 
-            # label near centroid
+            # Label near centroid
             avg_lat = sum(lats)/len(lats)
             avg_lon = sum(lons)/len(lons)
             fig.add_trace(go.Scattergeo(
