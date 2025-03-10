@@ -9,54 +9,58 @@ from dash import Dash, dcc, html, Input, Output, State, callback_context, no_upd
 import dash_bootstrap_components as dbc
 
 ###############################################################################
-# 1) LOAD DATA FROM JSON
+# 1) LOAD DATA FROM SEPARATE JSON FILES AND MERGE INTO territory_data
 ###############################################################################
-with open("territory.json", "r", encoding="utf-8") as f:
-    territory_data = json.load(f)
+with open("meere_meeresteile_und_seen.json", "r", encoding="utf-8") as f:
+    meere_data = json.load(f)
 
-# Build a unified DataFrame from the JSON data
+with open("fluesse.json", "r", encoding="utf-8") as f:
+    fluesse_data = json.load(f)
+
+with open("inseln_inselgruppen.json", "r", encoding="utf-8") as f:
+    inseln_data = json.load(f)
+
+with open("gebirge.json", "r", encoding="utf-8") as f:
+    gebirge_data = json.load(f)
+
+territory_data = {
+    "gewässer": {
+        "meere_meeresteile_und_seen": meere_data,
+        "fluesse": fluesse_data,
+        "inseln_inselgruppen": inseln_data,
+        "gebirge": gebirge_data
+    }
+}
+
+###############################################################################
+# 2) BUILD A UNIFIED DATAFRAME FROM territory_data
+###############################################################################
 data_rows = []
 
-# Category: Meere, Meeresteile und Seen
-cat_name = "Meere, Meeresteile und Seen"
-data = territory_data["gewässer"]["meere_meeresteile_und_seen"]["data"]
-coords = territory_data["gewässer"]["meere_meeresteile_und_seen"]["coords"]
-for feature in data:
-    lat = coords.get(feature, {}).get("lat", None)
-    lon = coords.get(feature, {}).get("lon", None)
-    data_rows.append({"category": cat_name, "feature": feature, "lat": lat, "lon": lon})
+def add_category(cat_name, cat_data):
+    features = cat_data.get("data", [])
+    coords = cat_data.get("coords", {})
+    for feature in features:
+        info = coords.get(feature, {})
+        geom_type = info.get("type", "point")
+        points = info.get("points", [])
+        data_rows.append({
+            "category": cat_name,
+            "feature": feature,
+            "geometry_type": geom_type,
+            "geometry_points": points
+        })
 
-# Category: Flüsse
-cat_name = "Flüsse"
-data = territory_data["gewässer"]["fluesse"]["data"]
-coords = territory_data["gewässer"]["fluesse"]["coords"]
-for feature in data:
-    lat = coords.get(feature, {}).get("lat", None)
-    lon = coords.get(feature, {}).get("lon", None)
-    data_rows.append({"category": cat_name, "feature": feature, "lat": lat, "lon": lon})
-
-# Category: Inseln/Inselgruppen
-cat_name = "Inseln/Inselgruppen"
-data = territory_data["inseln_inselgruppen"]["data"]
-coords = territory_data["inseln_inselgruppen"]["coords"]
-for feature in data:
-    lat = coords.get(feature, {}).get("lat", None)
-    lon = coords.get(feature, {}).get("lon", None)
-    data_rows.append({"category": cat_name, "feature": feature, "lat": lat, "lon": lon})
-
-# Category: Gebirge
-cat_name = "Gebirge"
-data = territory_data["gebirge"]["data"]
-coords = territory_data["gebirge"]["coords"]
-for feature in data:
-    lat = coords.get(feature, {}).get("lat", None)
-    lon = coords.get(feature, {}).get("lon", None)
-    data_rows.append({"category": cat_name, "feature": feature, "lat": lat, "lon": lon})
+# Add water features from the "gewässer" key
+add_category("Meere, Meeresteile und Seen", territory_data["gewässer"]["meere_meeresteile_und_seen"])
+add_category("Flüsse", territory_data["gewässer"]["fluesse"])
+add_category("Inseln/Inselgruppen", territory_data["gewässer"]["inseln_inselgruppen"])
+add_category("Gebirge", territory_data["gewässer"]["gebirge"])
 
 df = pd.DataFrame(data_rows)
 
 ###############################################################################
-# 2) DASH APP SETUP (MODERN THEME, LAYOUT)
+# 3) DASH APP SETUP (Modern Design with LUX theme)
 ###############################################################################
 app = Dash(__name__, external_stylesheets=[dbc.themes.LUX])
 
@@ -78,7 +82,7 @@ app.layout = dbc.Container([
         className="mb-4"
     ),
 
-    # Screen 1: Category selection
+    # Screen 1: Category Selection
     dbc.Card(
         [
             dbc.CardHeader("Kategorie auswählen", className="bg-secondary text-white"),
@@ -87,6 +91,7 @@ app.layout = dbc.Container([
                 dcc.Dropdown(
                     id="category-dropdown",
                     options=[
+                        {"label": "Alle", "value": "Alle"},
                         {"label": "Meere, Meeresteile und Seen", "value": "Meere, Meeresteile und Seen"},
                         {"label": "Flüsse", "value": "Flüsse"},
                         {"label": "Inseln/Inselgruppen", "value": "Inseln/Inselgruppen"},
@@ -109,19 +114,20 @@ app.layout = dbc.Container([
             dbc.CardBody([
                 dbc.Row([
                     dbc.Col([
-                        html.Label("Welches Feature ist rot markiert?", style={"fontWeight": "bold"}),
+                        html.Label("Welches Feature ist hervorgehoben?", style={"fontWeight": "bold"}),
                         dcc.Dropdown(id="feature-guess-dropdown", style={"width": "100%", "maxWidth": "300px"}),
                         dbc.Button("Tipp absenden", id="guess-button", n_clicks=0, color="primary", className="mt-2"),
-                        html.Div(id="guess-result", style={"marginTop": "1em", "fontWeight": "bold", "color": "#333"}),
+                        html.Div(id="guess-result", style={"marginTop": "1em", "fontWeight": "bold", "color": "#333"})
                     ], md=4),
                     dbc.Col([
                         dcc.Graph(id="blind-map", style={"height": "500px"})
-                    ], md=8),
+                    ], md=8)
                 ]),
                 html.Hr(),
                 html.Div(id="score-display", className="mt-3 text-center"),
                 html.Div(id="lists-display", className="mt-3 text-center"),
-                dbc.Button("Neu starten", id="reset-button", n_clicks=0, color="warning", className="mt-3")
+                dbc.Button("Neu starten", id="reset-button", n_clicks=0, color="warning", className="mt-3"),
+                dbc.Button("Zurück zum Menü", id="back-button", n_clicks=0, color="info", className="mt-3")
             ])
         ],
         id="quiz-card",
@@ -130,7 +136,7 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 ###############################################################################
-# 3) SCREEN SWITCHING
+# 4) SCREEN SWITCHING: Show category selection or quiz screen
 ###############################################################################
 @app.callback(
     Output("category-selection-card", "style"),
@@ -138,40 +144,33 @@ app.layout = dbc.Container([
     Input("store-selected-category", "data")
 )
 def switch_screens(selected_category):
-    """
-    Show the category menu if no category is chosen.
-    Otherwise, show the quiz screen.
-    """
     if selected_category is None:
-        return (
-            {"maxWidth": "600px", "margin": "0 auto 2rem auto"},
-            {"display": "none"}
-        )
+        return {"maxWidth": "600px", "margin": "0 auto 2rem auto"}, {"display": "none"}
     else:
-        return (
-            {"display": "none"},
-            {"maxWidth": "900px", "margin": "0 auto 2rem auto"}
-        )
+        return {"display": "none"}, {"maxWidth": "900px", "margin": "0 auto 2rem auto"}
 
 ###############################################################################
-# 4) SET CATEGORY (start-button callback)
+# 5) SINGLE CALLBACK FOR "Spiel starten" & "Zurück zum Menü"
 ###############################################################################
 @app.callback(
     Output("store-selected-category", "data"),
     Input("start-button", "n_clicks"),
+    Input("back-button", "n_clicks"),
     State("category-dropdown", "value")
 )
-def start_game(n_clicks, selected_category):
-    """
-    When user clicks 'Spiel starten', store the selected category.
-    The quiz logic callback will handle the rest.
-    """
-    if n_clicks and selected_category:
-        return selected_category
+def set_or_reset_category(n_start, n_back, chosen_category):
+    ctx = callback_context
+    if not ctx.triggered:
+        return no_update
+    trig_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if trig_id == "start-button" and chosen_category:
+        return chosen_category
+    elif trig_id == "back-button":
+        return None
     return no_update
 
 ###############################################################################
-# 5) QUIZ LOGIC (guess-button, reset-button, and category changes)
+# 6) QUIZ LOGIC: Initialize quiz, check guesses, update scores, etc.
 ###############################################################################
 @app.callback(
     Output("feature-guess-dropdown", "options"),
@@ -185,11 +184,9 @@ def start_game(n_clicks, selected_category):
     Output("lists-display", "children"),
     Output("feature-guess-dropdown", "value"),
     Output("store-start-time", "data"),
-
     Input("store-selected-category", "data"),
     Input("reset-button", "n_clicks"),
     Input("guess-button", "n_clicks"),
-
     State("store-selected-feature", "data"),
     State("store-correct-count", "data"),
     State("store-wrong-count", "data"),
@@ -208,13 +205,6 @@ def quiz_logic(selected_category,
                remaining_features,
                user_guess,
                start_time):
-    """
-    Main quiz logic. Triggered by:
-      - Category chosen (store-selected-category)
-      - Neu starten
-      - Tipp absenden
-    """
-
     ctx = callback_context
     if not ctx.triggered:
         return no_update, no_update, "", no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
@@ -223,14 +213,16 @@ def quiz_logic(selected_category,
     trig_id = ctx.triggered[0]["prop_id"].split(".")[0]
     message = ""
 
-    # If category is not selected, do nothing
     if selected_category is None:
         return no_update, no_update, "", correct_count, wrong_count, done_features, remaining_features, no_update, no_update, no_update, start_time
 
-    # If we haven't initialized the quiz yet (remaining_features is empty),
-    # or the user clicks "Neu starten," do the initialization.
+    if selected_category == "Alle":
+        cat_features = df["feature"].tolist()
+    else:
+        cat_features = df[df["category"] == selected_category]["feature"].tolist()
+
     if (not remaining_features) or (trig_id == "reset-button"):
-        remaining_features = df[df["category"] == selected_category]["feature"].tolist()
+        remaining_features = cat_features.copy()
         current_feature = random.choice(remaining_features) if remaining_features else None
         done_features = []
         correct_count = 0
@@ -239,7 +231,6 @@ def quiz_logic(selected_category,
         if trig_id == "reset-button":
             message = "Ratespiel neu gestartet!"
 
-    # If user clicked "Tipp absenden"
     elif trig_id == "guess-button":
         if not current_feature:
             message = "Keine Features übrig oder Ratespiel nicht gestartet."
@@ -264,21 +255,10 @@ def quiz_logic(selected_category,
                     message += " Ratespiel beendet!"
                     current_feature = None
 
-    # Build new dropdown options
     dropdown_options = [{"label": f, "value": f} for f in remaining_features]
+    elapsed = now - start_time if start_time is not None else 0
+    elapsed_str = f"{int(elapsed)} s" if elapsed < 120 else f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
 
-    # Calculate elapsed time
-    if start_time is None:
-        elapsed = 0
-    else:
-        elapsed = now - start_time
-
-    if elapsed < 120:
-        elapsed_str = f"{int(elapsed)} s"
-    else:
-        elapsed_str = f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
-
-    # Build score display
     score_display = dbc.Card(
         dbc.CardBody([
             html.H5("Aktueller Punktestand", className="card-title"),
@@ -289,7 +269,6 @@ def quiz_logic(selected_category,
         className="border p-2 d-inline-block"
     )
 
-    # Build lists display
     lists_display = dbc.Card(
         dbc.CardBody([
             html.H6("Verbleibende Features:"),
@@ -301,57 +280,98 @@ def quiz_logic(selected_category,
     )
 
     return (
-        dropdown_options,          # feature-guess-dropdown.options
-        current_feature,           # store-selected-feature.data
-        message,                   # guess-result.children
-        correct_count,             # store-correct-count.data
-        wrong_count,               # store-wrong-count.data
-        done_features,             # store-done-features.data
-        remaining_features,        # store-remaining-features.data
-        score_display,             # score-display.children
-        lists_display,             # lists-display.children
-        None,                      # feature-guess-dropdown.value (reset selection)
-        start_time                 # store-start-time.data
+        dropdown_options,
+        current_feature,
+        message,
+        correct_count,
+        wrong_count,
+        done_features,
+        remaining_features,
+        score_display,
+        lists_display,
+        None,
+        start_time
     )
 
 ###############################################################################
-# 6) UPDATE MAP
+# 7) UPDATE MAP: Draw feature geometry based on its type.
+# For large features (e.g. "Indik (Indischer Ozean)", "Neuguinea", "Grönland", "Island")
+# we draw only the outline (no fill) to avoid covering the map.
 ###############################################################################
 @app.callback(
     Output("blind-map", "figure"),
     Input("store-selected-feature", "data")
 )
 def update_map(selected_feature):
-    """
-    Plot the currently selected feature on a world map in red.
-    """
     if not selected_feature:
-        # Show an empty map with a note
-        fig = px.scatter(
-            x=[0], y=[0],
-            title="Bitte wähle ein Feature und starte das Ratespiel."
-        )
+        fig = px.scatter(x=[0], y=[0], title="Bitte wähle ein Feature und starte das Ratespiel.")
         fig.update_layout(height=400)
         return fig
 
     row = df[df["feature"] == selected_feature]
     if row.empty:
-        coords = {"lat": 0, "lon": 0}
+        geom_type = "point"
+        points = []
+        category = ""
     else:
-        coords = {"lat": row.iloc[0]["lat"], "lon": row.iloc[0]["lon"]}
+        geom_type = row.iloc[0]["geometry_type"]
+        points = row.iloc[0]["geometry_points"]
+        category = row.iloc[0]["category"]
 
-    fig = px.scatter_geo(
-        lat=[coords["lat"]],
-        lon=[coords["lon"]],
-        scope="world",
+    fig = go.Figure()
+    fig.update_layout(
         title="Blind Map - Ratespiel",
+        geo=dict(scope="world"),
         height=500
     )
-    fig.update_traces(marker=dict(size=20, color="red"))
+
+    if geom_type == "point":
+        lat, lon = points[0]
+        fig.add_trace(go.Scattergeo(
+            lat=[lat],
+            lon=[lon],
+            mode="markers",
+            marker=dict(size=12, color="red")
+        ))
+    elif geom_type == "line":
+        lats = [p[0] for p in points]
+        lons = [p[1] for p in points]
+        fig.add_trace(go.Scattergeo(
+            lat=lats,
+            lon=lons,
+            mode="lines",
+            line=dict(width=6, color="red")
+        ))
+    elif geom_type == "polygon":
+        lats = [p[0] for p in points]
+        lons = [p[1] for p in points]
+        if points[0] != points[-1]:
+            lats.append(points[0][0])
+            lons.append(points[0][1])
+        # For "Gebirge" and for large features that would cover the map,
+        # we want to draw only the outline.
+        no_fill_features = ["Indik (Indischer Ozean)", "Neuguinea", "Grönland", "Island"]
+        if (category == "Gebirge") or (selected_feature in no_fill_features):
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                line=dict(width=3, color="red")
+            ))
+        else:
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                fill="toself",
+                line=dict(width=3, color="red"),
+                fillcolor="red",
+                opacity=0.3
+            ))
     return fig
 
 ###############################################################################
-# 7) RUN SERVER
+# 8) RUN SERVER
 ###############################################################################
 if __name__ == "__main__":
     app.run_server(debug=True, host="0.0.0.0", port=8080)
