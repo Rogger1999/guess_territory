@@ -1,0 +1,151 @@
+{
+  "title": "4. Topographisches Grundwissen (Auswahl)",
+  "gewässer": {
+    "meere_meeresteile_und_seen": {
+      "data": [
+        "Pazifik (Pazifischer Ozean)",
+        "Atlantik (Atlantischer Ozean)",
+        "Indik (Indischer Ozean)",
+        "Nordsee",
+        "Ostsee",
+        "Mittelmeer",
+        "Rotes Meer",
+        "Schwarzes Meer",
+        "Großen Seen (Great Lakes)",
+        "Victoriasee",
+        "Baikalsee",
+        "Kaspisches Meer",
+        "Aralsee",
+        "Totes Meer"
+      ],
+      "coords": {
+        "Pazifik (Pazifischer Ozean)": { "lat": 0, "lon": -160 },
+        "Atlantik (Atlantischer Ozean)": { "lat": 0, "lon": -30 },
+        "Indik (Indischer Ozean)": { "lat": -20, "lon": 80 },
+        "Nordsee": { "lat": 54, "lon": 3 },
+        "Ostsee": { "lat": 56, "lon": 20 },
+        "Mittelmeer": { "lat": 36, "lon": 18 },
+        "Rotes Meer": { "lat": 20, "lon": 38 },
+        "Schwarzes Meer": { "lat": 42, "lon": 35 },
+        "Großen Seen (Great Lakes)": { "lat": 45, "lon": -85 },
+        "Victoriasee": { "lat": -1.5, "lon": 33.0 },
+        "Baikalsee": { "lat": 53.5, "lon": 107.5 },
+        "Kaspisches Meer": { "lat": 41, "lon": 50 },
+        "Aralsee": { "lat": 45, "lon": 61 },
+        "Totes Meer": { "lat": 31.5, "lon": 35.5 }
+      }
+    },
+    "fluesse": {
+      "data": [
+        "Mississippi",
+        "Missouri",
+        "Amazonas",
+        "Jangste (Chang Jiang)",
+        "Gelber Fluss (Huang He)",
+        "Ganges",
+        "Indus",
+        "Euphrat",
+        "Tigris",
+        "Donau",
+        "Rhein",
+        "Wolga",
+        "Ob",
+        "Jenissei",
+        "Lena"
+      ],
+      "coords": {
+        "Mississippi": { "lat": 35, "lon": -90 },
+        "Missouri": { "lat": 39, "lon": -94 },
+        "Amazonas": { "lat": -3, "lon": -60 },
+        "Jangste (Chang Jiang)": { "lat": 31, "lon": 119 },
+        "Gelber Fluss (Huang He)": { "lat": 35, "lon": 105 },
+        "Ganges": { "lat": 25, "lon": 88 },
+        "Indus": { "lat": 30, "lon": 70 },
+        "Euphrat": { "lat": 33, "lon": 38 },
+        "Tigris": { "lat": 35, "lon": 43 },
+        "Donau": { "lat": 48, "lon": 16 },
+        "Rhein": { "lat": 50, "lon": 7 },
+        "Wolga": { "lat": 55, "lon": 45 },
+        "Ob": { "lat": 60, "lon": 65 },
+        "Jenissei": { "lat": 58, "lon": 94 },
+        "Lena": { "lat": 68, "lon": 120 }
+      }
+    }
+  },
+  "inseln_inselgruppen": {
+    "data": [
+      "Neuguinea",
+      "Borneo",
+      "Sumatra",
+      "Java",
+      "Sri Lanka",
+      "Philippinen",
+      "Japan",
+      "Neuseeland",
+      "Madagaskar",
+      "Kuba",
+      "Grönland",
+      "Island",
+      "Britannien",
+      "Irland",
+      "Skandinavische Halbinsel",
+      "Arabische Halbinsel",
+      "Iberische Halbinsel",
+      "Indochina",
+      "Malakka"
+    ],
+    "coords": {
+      "Neuguinea": { "lat": -5, "lon": 145 },
+      "Borneo": { "lat": 0, "lon": 114 },
+      "Sumatra": { "lat": -1, "lon": 102 },
+      "Java": { "lat": -7, "lon": 110 },
+      "Sri Lanka": { "lat": 7, "lon": 81 },
+      "Philippinen": { "lat": 12, "lon": 122 },
+      "Japan": { "lat": 36, "lon": 138 },
+      "Neuseeland": { "lat": -41, "lon": 174 },
+      "Madagaskar": { "lat": -20, "lon": 47 },
+      "Kuba": { "lat": 21.5, "lon": -80 },
+      "Grönland": { "lat": 72, "lon": -40 },
+      "Island": { "lat": 64, "lon": -21 },
+      "Britannien": { "lat": 54, "lon": -2 },
+      "Irland": { "lat": 53, "lon": -8 },
+      "Skandinavische Halbinsel": { "lat": 65, "lon": 15 },
+      "Arabische Halbinsel": { "lat": 25, "lon": 45 },
+      "Iberische Halbinsel": { "lat": 40, "lon": -4 },
+      "Indochina": { "lat": 16, "lon": 105 },
+      "Malakka": { "lat": 2.5, "lon": 102 }
+    }
+  },
+  "gebirge": {
+    "data": [
+      "Rocky Mountains",
+      "Anden",
+      "Himalaya",
+      "Hindukusch",
+      "Pamir",
+      "Kaukasus",
+      "Ural",
+      "Alpen",
+      "Apennin",
+      "Karpaten",
+      "Pyrenäen",
+      "Atlas",
+      "Zentralmassiv"
+    ],
+    "coords": {
+      "Rocky Mountains": { "lat": 39, "lon": -105 },
+      "Anden": { "lat": -15, "lon": -70 },
+      "Himalaya": { "lat": 28, "lon": 85 },
+      "Hindukusch": { "lat": 35, "lon": 70 },
+      "Pamir": { "lat": 38, "lon": 72 },
+      "Kaukasus": { "lat": 42, "lon": 44 },
+      "Ural": { "lat": 60, "lon": 60 },
+      "Alpen": { "lat": 46, "lon": 10 },
+      "Apennin": { "lat": 42, "lon": 13 },
+      "Karpaten": { "lat": 48, "lon": 25 },
+      "Pyrenäen": { "lat": 42, "lon": 0 },
+      "Atlas": { "lat": 32, "lon": -5 },
+      "Zentralmassiv": { "lat": 46, "lon": 2 }
+    }
+  }
+}
