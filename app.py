@@ -20,12 +20,18 @@ with open("inseln_inselgruppen.json", "r", encoding="utf-8") as f:
 with open("gebirge.json", "r", encoding="utf-8") as f:
     gebirge_data = json.load(f)
 
+# NEW: Load forgotten.json
+with open("forgotten.json", "r", encoding="utf-8") as f:
+    forgotten_data = json.load(f)
+
 territory_data = {
     "gewässer": {
         "meere_meeresteile_und_seen": meere_data,
         "fluesse": fluesse_data,
         "inseln_inselgruppen": inseln_data,
-        "gebirge": gebirge_data
+        "gebirge": gebirge_data,
+        # NEW: Add the forgotten file
+        "forgotten": forgotten_data
     }
 }
 
@@ -52,6 +58,10 @@ add_category("Meere, Meeresteile und Seen", territory_data["gewässer"]["meere_m
 add_category("Flüsse", territory_data["gewässer"]["fluesse"])
 add_category("Inseln/Inselgruppen", territory_data["gewässer"]["inseln_inselgruppen"])
 add_category("Gebirge", territory_data["gewässer"]["gebirge"])
+
+# NEW: Additional category for forgotten.json
+add_category("Vergessenes", territory_data["gewässer"]["forgotten"])
+
 df = pd.DataFrame(data_rows)
 
 ###############################################################################
@@ -178,14 +188,16 @@ def populate_category(mode):
             {"label": "Meere, Meeresteile und Seen", "value": "Meere, Meeresteile und Seen"},
             {"label": "Flüsse", "value": "Flüsse"},
             {"label": "Inseln/Inselgruppen", "value": "Inseln/Inselgruppen"},
-            {"label": "Gebirge", "value": "Gebirge"}
+            {"label": "Gebirge", "value": "Gebirge"},
+            {"label": "Vergessenes", "value": "Vergessenes"},
         ]
     elif mode == "learning":
         return [
             {"label": "Meere, Meeresteile und Seen", "value": "Meere, Meeresteile und Seen"},
             {"label": "Flüsse", "value": "Flüsse"},
             {"label": "Inseln/Inselgruppen", "value": "Inseln/Inselgruppen"},
-            {"label": "Gebirge", "value": "Gebirge"}
+            {"label": "Gebirge", "value": "Gebirge"},
+            {"label": "Vergessenes", "value": "Vergessenes"},
         ]
     return []
 
@@ -305,11 +317,13 @@ def quiz_logic(selected_cat,
     if selected_cat is None:
         return no_update, no_update, "", correct_count, wrong_count, done_features, remaining_features, no_update, no_update, no_update, start_time
 
+    # Get all features from DF for the chosen category
     if selected_cat == "Alle":
         cat_feats = df["feature"].tolist()
     else:
         cat_feats = df[df["category"] == selected_cat]["feature"].tolist()
 
+    # Reset scenario
     if not remaining_features or trig_id == "reset-button":
         remaining_features = cat_feats.copy()
         current_feature = random.choice(remaining_features) if remaining_features else None
@@ -319,6 +333,7 @@ def quiz_logic(selected_cat,
         start_time = now
         if trig_id == "reset-button":
             message = "Ratespiel neu gestartet!"
+    # Guess scenario
     elif trig_id == "guess-button":
         if not current_feature:
             message = "Keine Features übrig oder Ratespiel nicht gestartet."
@@ -346,6 +361,7 @@ def quiz_logic(selected_cat,
     dropdown_options = [{"label": f, "value": f} for f in remaining_features]
     elapsed = now - start_time if start_time else 0
     elapsed_str = f"{int(elapsed)} s" if elapsed < 120 else f"{int(elapsed//60)} min {int(elapsed%60)} s"
+
     score_display = dbc.Card(
         dbc.CardBody([
             html.H5("Aktueller Punktestand", className="card-title"),
@@ -355,6 +371,7 @@ def quiz_logic(selected_cat,
         ]),
         className="border p-2 d-inline-block"
     )
+
     lists_display = dbc.Card(
         dbc.CardBody([
             html.H6("Verbleibende Features:"),
@@ -364,6 +381,7 @@ def quiz_logic(selected_cat,
         ]),
         className="border p-2 mt-2"
     )
+
     return (
         dropdown_options,
         current_feature,
@@ -379,7 +397,7 @@ def quiz_logic(selected_cat,
     )
 
 ###############################################################################
-# 9) QUIZ MAP (NO-FILL FOR CERTAIN FEATURES)
+# 9) QUIZ MAP (NO-FILL FOR POLYGONS)
 ###############################################################################
 @app.callback(
     Output("blind-map", "figure"),
@@ -401,8 +419,9 @@ def update_quiz_map(selected_feature):
 
     geom_type = row.iloc[0]["geometry_type"]
     points = row.iloc[0]["geometry_points"]
-    category = row.iloc[0]["category"]
-    feature_name = row.iloc[0]["feature"]
+
+    # color for quiz
+    color_quiz = "red"
 
     if geom_type == "point":
         lat, lon = points[0]
@@ -410,7 +429,7 @@ def update_quiz_map(selected_feature):
             lat=[lat],
             lon=[lon],
             mode="markers",
-            marker=dict(size=12, color="red")
+            marker=dict(size=12, color=color_quiz)
         ))
     elif geom_type == "line":
         lats = [p[0] for p in points]
@@ -419,41 +438,42 @@ def update_quiz_map(selected_feature):
             lat=lats,
             lon=lons,
             mode="lines",
-            line=dict(width=6, color="red")
+            line=dict(width=6, color=color_quiz)
         ))
     elif geom_type == "polygon":
         lats = [p[0] for p in points]
         lons = [p[1] for p in points]
+        # Ensure polygon is closed
         if points[0] != points[-1]:
             lats.append(points[0][0])
             lons.append(points[0][1])
 
-        # No fill for these categories or these specific features
-        no_fill_categories = ["Gebirge", "Inseln/Inselgruppen"]
-        no_fill_features = ["Kuba", "Neuseeland", "Island", "Grönland"]
+        # Draw only an outline (no fill)
+        fig.add_trace(go.Scattergeo(
+            lat=lats,
+            lon=lons,
+            mode="lines",
+            line=dict(width=3, color=color_quiz)
+        ))
 
-        if category in no_fill_categories or feature_name in no_fill_features:
-            fig.add_trace(go.Scattergeo(
-                lat=lats,
-                lon=lons,
-                mode="lines",
-                line=dict(width=3, color="red")
-            ))
-        else:
-            fig.add_trace(go.Scattergeo(
-                lat=lats,
-                lon=lons,
-                mode="lines",
-                fill="toself",
-                line=dict(width=3, color="red"),
-                fillcolor="red",
-                opacity=0.3
-            ))
+        # --- If you want to fill smaller polygons, you can do something like:
+        #
+        # fig.add_trace(go.Scattergeo(
+        #     lat=lats,
+        #     lon=lons,
+        #     mode="lines",
+        #     fill="toself",
+        #     line=dict(width=3, color=color_quiz),
+        #     fillcolor=color_quiz,
+        #     opacity=0.3
+        # ))
+        #
+        # But large polygons may cover the map.
 
     return fig
 
 ###############################################################################
-# 10) LEARNING MAP (NO-FILL FOR CERTAIN FEATURES)
+# 10) LEARNING MAP (NO-FILL FOR POLYGONS)
 ###############################################################################
 @app.callback(
     Output("learning-map", "figure"),
@@ -474,14 +494,13 @@ def update_learning_map(selected_category):
         height=500
     )
 
-    no_fill_categories = ["Gebirge", "Inseln/Inselgruppen"]
-    no_fill_features = ["Kuba", "Neuseeland", "Island", "Grönland"]
+    # color for learning
+    color_learn = "blue"
 
-    for _, row in sub_df.iterrows():
-        cat = row["category"]
-        feat = row["feature"]
-        gtype = row["geometry_type"]
-        pts = row["geometry_points"]
+    for _, row_data in sub_df.iterrows():
+        feat = row_data["feature"]
+        gtype = row_data["geometry_type"]
+        pts = row_data["geometry_points"]
 
         if gtype == "point":
             lat, lon = pts[0]
@@ -491,7 +510,7 @@ def update_learning_map(selected_category):
                 mode="markers+text",
                 text=[feat],
                 textposition="top center",
-                marker=dict(size=12, color="blue")
+                marker=dict(size=12, color=color_learn)
             ))
         elif gtype == "line":
             lats = [p[0] for p in pts]
@@ -500,8 +519,9 @@ def update_learning_map(selected_category):
                 lat=lats,
                 lon=lons,
                 mode="lines",
-                line=dict(width=4, color="blue")
+                line=dict(width=4, color=color_learn)
             ))
+            # label in the middle
             mid_i = len(lats)//2
             fig.add_trace(go.Scattergeo(
                 lat=[lats[mid_i]],
@@ -517,44 +537,35 @@ def update_learning_map(selected_category):
                 lats.append(pts[0][0])
                 lons.append(pts[0][1])
 
-            if cat in no_fill_categories or feat in no_fill_features:
-                # outline only
-                fig.add_trace(go.Scattergeo(
-                    lat=lats,
-                    lon=lons,
-                    mode="lines",
-                    line=dict(width=3, color="blue")
-                ))
-                # label near centroid
-                avg_lat = sum(lats)/len(lats)
-                avg_lon = sum(lons)/len(lons)
-                fig.add_trace(go.Scattergeo(
-                    lat=[avg_lat],
-                    lon=[avg_lon],
-                    mode="text",
-                    text=[feat],
-                    textposition="top center"
-                ))
-            else:
-                # fill
-                fig.add_trace(go.Scattergeo(
-                    lat=lats,
-                    lon=lons,
-                    mode="lines",
-                    fill="toself",
-                    line=dict(width=3, color="blue"),
-                    fillcolor="blue",
-                    opacity=0.3
-                ))
-                avg_lat = sum(lats)/len(lats)
-                avg_lon = sum(lons)/len(lons)
-                fig.add_trace(go.Scattergeo(
-                    lat=[avg_lat],
-                    lon=[avg_lon],
-                    mode="text",
-                    text=[feat],
-                    textposition="top center"
-                ))
+            # Outline only
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                line=dict(width=3, color=color_learn)
+            ))
+
+            # Optionally fill small polygons:
+            # fig.add_trace(go.Scattergeo(
+            #     lat=lats,
+            #     lon=lons,
+            #     mode="lines",
+            #     fill="toself",
+            #     line=dict(width=3, color=color_learn),
+            #     fillcolor=color_learn,
+            #     opacity=0.3
+            # ))
+
+            # label near centroid
+            avg_lat = sum(lats)/len(lats)
+            avg_lon = sum(lons)/len(lons)
+            fig.add_trace(go.Scattergeo(
+                lat=[avg_lat],
+                lon=[avg_lon],
+                mode="text",
+                text=[feat],
+                textposition="top center"
+            ))
 
     list_text = "Features: " + ", ".join(sub_df["feature"].tolist())
     return fig, list_text
