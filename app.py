@@ -35,15 +35,15 @@ territory_data = {
 data_rows = []
 
 def add_category(cat_name, cat_data):
-    features = cat_data.get("data", [])
+    feats = cat_data.get("data", [])
     coords = cat_data.get("coords", {})
-    for feature in features:
-        info = coords.get(feature, {})
+    for feat in feats:
+        info = coords.get(feat, {})
         geom_type = info.get("type", "point")
         points = info.get("points", [])
         data_rows.append({
             "category": cat_name,
-            "feature": feature,
+            "feature": feat,
             "geometry_type": geom_type,
             "geometry_points": points
         })
@@ -52,17 +52,16 @@ add_category("Meere, Meeresteile und Seen", territory_data["gewässer"]["meere_m
 add_category("Flüsse", territory_data["gewässer"]["fluesse"])
 add_category("Inseln/Inselgruppen", territory_data["gewässer"]["inseln_inselgruppen"])
 add_category("Gebirge", territory_data["gewässer"]["gebirge"])
-
 df = pd.DataFrame(data_rows)
 
 ###############################################################################
-# 3) APP LAYOUT
+# 3) DASH APP LAYOUT
 ###############################################################################
 app = Dash(__name__, external_stylesheets=[dbc.themes.LUX])
+
 app.layout = dbc.Container([
-    # Stores
-    dcc.Store(id="store-mode", data=None),              # "learning", "quiz", or None
-    dcc.Store(id="store-selected-category", data=None), # e.g. "Flüsse" or None
+    dcc.Store(id="store-mode", data=None),
+    dcc.Store(id="store-selected-category", data=None),
     dcc.Store(id="store-remaining-features", data=[]),
     dcc.Store(id="store-selected-feature", data=None),
     dcc.Store(id="store-correct-count", data=0),
@@ -147,16 +146,32 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 ###############################################################################
-# 4) POPULATE CATEGORY DROPDOWN
+# 4) SINGLE CALLBACK FOR MODE
+###############################################################################
+@app.callback(
+    Output("store-mode", "data"),
+    Input("mode-learning-button", "n_clicks"),
+    Input("mode-quiz-button", "n_clicks")
+)
+def set_mode(n_learn, n_quiz):
+    ctx = callback_context
+    if not ctx.triggered:
+        return no_update
+    trig_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if trig_id == "mode-learning-button" and n_learn:
+        return "learning"
+    elif trig_id == "mode-quiz-button" and n_quiz:
+        return "quiz"
+    return no_update
+
+###############################################################################
+# 5) POPULATE CATEGORY DROPDOWN
 ###############################################################################
 @app.callback(
     Output("category-dropdown", "options"),
     Input("store-mode", "data")
 )
-def populate_category_dropdown(mode):
-    """
-    As soon as mode changes, set the dropdown options accordingly.
-    """
+def populate_category(mode):
     if mode == "quiz":
         return [
             {"label": "Alle", "value": "Alle"},
@@ -175,54 +190,35 @@ def populate_category_dropdown(mode):
     return []
 
 ###############################################################################
-# 5) COMBINED CALLBACK: SET OR RESET MODE & CATEGORY
+# 6) SINGLE CALLBACK TO SET/RESET CATEGORY
 ###############################################################################
 @app.callback(
-    Output("store-mode", "data"),
     Output("store-selected-category", "data"),
-    Input("mode-learning-button", "n_clicks"),
-    Input("mode-quiz-button", "n_clicks"),
     Input("category-next-button", "n_clicks"),
     Input("back-button", "n_clicks"),
     Input("learning-back-button", "n_clicks"),
-    State("store-mode", "data"),
-    State("category-dropdown", "value")
+    State("category-dropdown", "value"),
+    State("store-selected-category", "data"),
+    prevent_initial_call=True
 )
-def mode_and_category_callback(n_learn, n_quiz, n_next, n_back_quiz, n_back_learn, current_mode, chosen_category):
-    """
-    A single callback that sets/clears BOTH store-mode and store-selected-category.
-    This avoids the "duplicate callback outputs" error.
-
-    1) If user clicks "Learning" => mode="learning", category=None
-    2) If user clicks "Quiz" => mode="quiz", category=None
-    3) If user clicks "Weiter" => store-selected-category=chosen_category
-    4) If user clicks "Zurück zum Menü" => mode=None, category=None
-    """
+def set_or_reset_category(n_next, n_quiz_back, n_learn_back, chosen_cat, old_cat):
     ctx = callback_context
     if not ctx.triggered:
-        return current_mode, no_update
+        return no_update
     trig_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    # 1) "Learning" button
-    if trig_id == "mode-learning-button" and n_learn:
-        return "learning", None
-
-    # 2) "Quiz" button
-    elif trig_id == "mode-quiz-button" and n_quiz:
-        return "quiz", None
-
-    # 3) "Weiter"
-    elif trig_id == "category-next-button" and chosen_category:
-        return current_mode, chosen_category
-
-    # 4) "Zurück zum Menü" (either from quiz or learning)
+    if trig_id == "category-next-button":
+        if chosen_cat:
+            return chosen_cat
+        return old_cat
+    # If user clicks any back button => reset to None
     elif trig_id in ["back-button", "learning-back-button"]:
-        return None, None
+        return None
 
-    return current_mode, no_update
+    return no_update
 
 ###############################################################################
-# 6) SWITCH SCREENS
+# 7) SWITCH SCREENS
 ###############################################################################
 @app.callback(
     Output("mode-selection-card", "style"),
@@ -232,27 +228,21 @@ def mode_and_category_callback(n_learn, n_quiz, n_next, n_back_quiz, n_back_lear
     Input("store-mode", "data"),
     Input("store-selected-category", "data")
 )
-def switch_screens(mode, selected_category):
-    """
-    If mode is None => show mode selection
-    If mode chosen but category not => show category selection
-    If both => show relevant main screen
-    """
+def switch_screens(mode, selected_cat):
     if mode is None:
         return (
-            {"maxWidth": "600px", "margin": "0 auto 2rem auto", "display": "block"},  # mode sel
-            {"display": "none"},  # cat sel
-            {"display": "none"},  # quiz
-            {"display": "none"}   # learning
+            {"maxWidth": "600px", "margin": "0 auto 2rem auto", "display": "block"},
+            {"display": "none"},
+            {"display": "none"},
+            {"display": "none"}
         )
-    if selected_category is None:
+    if selected_cat is None:
         return (
             {"display": "none"},
             {"maxWidth": "600px", "margin": "0 auto 2rem auto", "display": "block"},
             {"display": "none"},
             {"display": "none"}
         )
-    # If both mode & category
     if mode == "quiz":
         return (
             {"display": "none"},
@@ -270,7 +260,7 @@ def switch_screens(mode, selected_category):
     return no_update, no_update, no_update, no_update
 
 ###############################################################################
-# 7) QUIZ LOGIC
+# 8) QUIZ LOGIC
 ###############################################################################
 @app.callback(
     Output("feature-guess-dropdown", "options"),
@@ -295,7 +285,7 @@ def switch_screens(mode, selected_category):
     State("feature-guess-dropdown", "value"),
     State("store-start-time", "data")
 )
-def quiz_logic(selected_category,
+def quiz_logic(selected_cat,
                reset_click,
                guess_click,
                current_feature,
@@ -312,17 +302,16 @@ def quiz_logic(selected_category,
     trig_id = ctx.triggered[0]["prop_id"].split(".")[0]
     message = ""
 
-    if selected_category is None:
+    if selected_cat is None:
         return no_update, no_update, "", correct_count, wrong_count, done_features, remaining_features, no_update, no_update, no_update, start_time
 
-    # Build feature list
-    if selected_category == "Alle":
-        cat_features = df["feature"].tolist()
+    if selected_cat == "Alle":
+        cat_feats = df["feature"].tolist()
     else:
-        cat_features = df[df["category"] == selected_category]["feature"].tolist()
+        cat_feats = df[df["category"] == selected_cat]["feature"].tolist()
 
-    if (not remaining_features) or (trig_id == "reset-button"):
-        remaining_features = cat_features.copy()
+    if not remaining_features or trig_id == "reset-button":
+        remaining_features = cat_feats.copy()
         current_feature = random.choice(remaining_features) if remaining_features else None
         done_features = []
         correct_count = 0
@@ -390,16 +379,13 @@ def quiz_logic(selected_category,
     )
 
 ###############################################################################
-# 8) QUIZ MAP
+# 9) QUIZ MAP (NO-FILL FOR CERTAIN FEATURES)
 ###############################################################################
 @app.callback(
     Output("blind-map", "figure"),
     Input("store-selected-feature", "data")
 )
 def update_quiz_map(selected_feature):
-    """
-    Always show scope="world". If a feature is selected, highlight it in red.
-    """
     fig = go.Figure()
     fig.update_layout(
         title="Blind Map - Ratespiel",
@@ -415,6 +401,8 @@ def update_quiz_map(selected_feature):
 
     geom_type = row.iloc[0]["geometry_type"]
     points = row.iloc[0]["geometry_points"]
+    category = row.iloc[0]["category"]
+    feature_name = row.iloc[0]["feature"]
 
     if geom_type == "point":
         lat, lon = points[0]
@@ -439,19 +427,33 @@ def update_quiz_map(selected_feature):
         if points[0] != points[-1]:
             lats.append(points[0][0])
             lons.append(points[0][1])
-        fig.add_trace(go.Scattergeo(
-            lat=lats,
-            lon=lons,
-            mode="lines",
-            fill="toself",
-            line=dict(width=3, color="red"),
-            fillcolor="red",
-            opacity=0.3
-        ))
+
+        # No fill for these categories or these specific features
+        no_fill_categories = ["Gebirge", "Inseln/Inselgruppen"]
+        no_fill_features = ["Kuba", "Neuseeland", "Island", "Grönland"]
+
+        if category in no_fill_categories or feature_name in no_fill_features:
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                line=dict(width=3, color="red")
+            ))
+        else:
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                fill="toself",
+                line=dict(width=3, color="red"),
+                fillcolor="red",
+                opacity=0.3
+            ))
+
     return fig
 
 ###############################################################################
-# 9) LEARNING MODE MAP
+# 10) LEARNING MAP (NO-FILL FOR CERTAIN FEATURES)
 ###############################################################################
 @app.callback(
     Output("learning-map", "figure"),
@@ -464,9 +466,6 @@ def update_learning_map(selected_category):
         fig.update_layout(height=400)
         return fig, "Bitte Kategorie auswählen."
 
-    # Outline only for large polygons
-    no_fill_categories = ["Gebirge", "Meere, Meeresteile und Seen", "Inseln/Inselgruppen"]
-
     sub_df = df[df["category"] == selected_category]
     fig = go.Figure()
     fig.update_layout(
@@ -475,25 +474,28 @@ def update_learning_map(selected_category):
         height=500
     )
 
-    for _, row in sub_df.iterrows():
-        geom_type = row["geometry_type"]
-        points = row["geometry_points"]
-        feature = row["feature"]
-        category = row["category"]
+    no_fill_categories = ["Gebirge", "Inseln/Inselgruppen"]
+    no_fill_features = ["Kuba", "Neuseeland", "Island", "Grönland"]
 
-        if geom_type == "point":
-            lat, lon = points[0]
+    for _, row in sub_df.iterrows():
+        cat = row["category"]
+        feat = row["feature"]
+        gtype = row["geometry_type"]
+        pts = row["geometry_points"]
+
+        if gtype == "point":
+            lat, lon = pts[0]
             fig.add_trace(go.Scattergeo(
                 lat=[lat],
                 lon=[lon],
                 mode="markers+text",
-                text=[feature],
+                text=[feat],
                 textposition="top center",
                 marker=dict(size=12, color="blue")
             ))
-        elif geom_type == "line":
-            lats = [p[0] for p in points]
-            lons = [p[1] for p in points]
+        elif gtype == "line":
+            lats = [p[0] for p in pts]
+            lons = [p[1] for p in pts]
             fig.add_trace(go.Scattergeo(
                 lat=lats,
                 lon=lons,
@@ -505,34 +507,36 @@ def update_learning_map(selected_category):
                 lat=[lats[mid_i]],
                 lon=[lons[mid_i]],
                 mode="text",
-                text=[feature],
+                text=[feat],
                 textposition="top center"
             ))
-        elif geom_type == "polygon":
-            lats = [p[0] for p in points]
-            lons = [p[1] for p in points]
-            if points[0] != points[-1]:
-                lats.append(points[0][0])
-                lons.append(points[0][1])
-            if category in no_fill_categories:
-                # Outline only
+        elif gtype == "polygon":
+            lats = [p[0] for p in pts]
+            lons = [p[1] for p in pts]
+            if pts[0] != pts[-1]:
+                lats.append(pts[0][0])
+                lons.append(pts[0][1])
+
+            if cat in no_fill_categories or feat in no_fill_features:
+                # outline only
                 fig.add_trace(go.Scattergeo(
                     lat=lats,
                     lon=lons,
                     mode="lines",
                     line=dict(width=3, color="blue")
                 ))
+                # label near centroid
                 avg_lat = sum(lats)/len(lats)
                 avg_lon = sum(lons)/len(lons)
                 fig.add_trace(go.Scattergeo(
                     lat=[avg_lat],
                     lon=[avg_lon],
                     mode="text",
-                    text=[feature],
+                    text=[feat],
                     textposition="top center"
                 ))
             else:
-                # Fill smaller polygons
+                # fill
                 fig.add_trace(go.Scattergeo(
                     lat=lats,
                     lon=lons,
@@ -548,7 +552,7 @@ def update_learning_map(selected_category):
                     lat=[avg_lat],
                     lon=[avg_lon],
                     mode="text",
-                    text=[feature],
+                    text=[feat],
                     textposition="top center"
                 ))
 
