@@ -4,16 +4,13 @@
     "Atlantik (Atlantischer Ozean)",
     "Indik (Indischer Ozean)",
     "Nordsee",
-    "Ostsee",
+    "Persischer Golf",
     "Mittelmeer",
-    "Rotes Meer",
     "Schwarzes Meer",
     "Großen Seen (Great Lakes)",
     "Victoriasee",
     "Baikalsee",
-    "Kaspisches Meer",
-    "Aralsee",
-    "Totes Meer"
+    "Kaspisches Meer"
   ],
   "coords": {
     "Pazifik (Pazifischer Ozean)": {
@@ -68,6 +65,26 @@
         [-10, -170],
         [-5, -175],
         [0, -180]
+      ]
+    },
+    "Persischer Golf": {
+      "type": "polygon",
+      "points": [
+        [29.7, 47.5],
+        [28.7, 48.4],
+        [27.8, 49.5],
+        [26.9, 50.5],
+        [26.1, 51.2],
+        [25.6, 52.0],
+        [25.3, 53.0],
+        [25.5, 54.2],
+        [26.0, 55.2],
+        [26.4, 56.0],
+        [27.0, 55.8],
+        [28.0, 54.5],
+        [29.0, 52.0],
+        [29.5, 50.0],
+        [29.7, 47.5]
       ]
     },
     "Atlantik (Atlantischer Ozean)": {
